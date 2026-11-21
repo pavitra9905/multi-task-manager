@@ -14,7 +14,7 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
-    CORS(app, origins=["http://localhost:5173"])
+    CORS(app, origins=app.config["FRONTEND_ORIGINS"])
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
