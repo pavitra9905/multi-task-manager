@@ -9,7 +9,9 @@ A full-stack task app where each user registers, logs in, and manages only their
 
 ## Screenshots
 
-![Task page with categories](docs/tasks.png)
+![Task page with categories](docs/tasks1.png)
+![Task page with categories](docs/tasks2.png)
+
 
 ![Filtering tasks by status and priority](docs/filters.png)
 
