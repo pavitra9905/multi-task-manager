@@ -5,7 +5,7 @@ def make_task_for(client, headers, title="private task"):
 def test_user_b_does_not_see_user_a_tasks(client, user_a, user_b):
     make_task_for(client, user_a)
     res = client.get("/api/tasks", headers=user_b)
-    assert res.get_json() == []
+    assert res.get_json()["items"] == []
 
 
 def test_user_b_cannot_read_user_a_task(client, user_a, user_b):
@@ -56,4 +56,4 @@ def test_user_b_cannot_move_own_task_into_user_a_category(client, user_a, user_b
 def test_filters_do_not_leak_other_users_data(client, user_a, user_b):
     make_task_for(client, user_a, "A's secret report")
     res = client.get("/api/tasks?q=report", headers=user_b)
-    assert res.get_json() == []
+    assert res.get_json()["items"] == []

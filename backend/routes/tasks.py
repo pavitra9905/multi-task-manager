@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
+from sqlalchemy.orm import joinedload
 
 from extensions import db
 from models import Task, Category
@@ -9,6 +10,8 @@ from schemas import TaskSchema, STATUSES, PRIORITIES
 tasks_bp = Blueprint("tasks", __name__, url_prefix="/api/tasks")
 
 EDITABLE_FIELDS = ("title", "description", "status", "priority", "due_date", "category_id")
+DEFAULT_PER_PAGE = 10
+MAX_PER_PAGE = 50
 
 
 def task_to_dict(t):
@@ -39,7 +42,15 @@ def get_own_task(user_id, task_id):
 @jwt_required()
 def list_tasks():
     user_id = int(get_jwt_identity())
-    query = Task.query.filter_by(user_id=user_id)
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", DEFAULT_PER_PAGE, type=int)
+    if page < 1 or per_page < 1:
+        return jsonify({"error": "page and per_page must be 1 or more."}), 400
+    per_page = min(per_page, MAX_PER_PAGE)
+
+    # joinedload fetches each task's category in the same query (avoids N+1 queries)
+    query = Task.query.options(joinedload(Task.category)).filter_by(user_id=user_id)
 
     status = request.args.get("status")
     if status:
@@ -61,8 +72,17 @@ def list_tasks():
     if search:
         query = query.filter(Task.title.ilike(f"%{search}%"))
 
-    tasks = query.order_by(Task.created_at.desc()).all()
-    return jsonify([task_to_dict(t) for t in tasks]), 200
+    # id is a tie-breaker so the order never changes between pages
+    result = query.order_by(Task.created_at.desc(), Task.id.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    return jsonify({
+        "items": [task_to_dict(t) for t in result.items],
+        "page": page,
+        "per_page": per_page,
+        "total": result.total,
+        "pages": result.pages,
+    }), 200
 
 
 @tasks_bp.post("")

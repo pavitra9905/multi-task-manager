@@ -1,7 +1,8 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from config import Config
-from extensions import db, migrate, jwt
+from extensions import db, migrate, jwt, limiter
 import models  # noqa: F401
 from routes.auth import auth_bp
 from routes.categories import categories_bp
@@ -14,10 +15,15 @@ def create_app(test_config=None):
     if test_config:
         app.config.update(test_config)
 
+    # Behind Render's proxy, read the real client IP from X-Forwarded-For
+    # (trust only 1 proxy, so a fake header sent by a client is ignored)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
+
     CORS(app, origins=app.config["FRONTEND_ORIGINS"])
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    limiter.init_app(app)
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(categories_bp)
@@ -26,6 +32,10 @@ def create_app(test_config=None):
     @app.get("/api/health")
     def health():
         return jsonify({"status": "ok"})
+
+    @app.errorhandler(429)
+    def too_many_requests(e):
+        return jsonify({"error": "Too many attempts. Please wait a few minutes and try again."}), 429
 
     @jwt.unauthorized_loader
     def missing_token(reason):

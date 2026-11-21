@@ -7,6 +7,7 @@ import TaskItem from "../components/TaskItem";
 import CategoryManager from "../components/CategoryManager";
 
 const EMPTY_FILTERS = { status: "", priority: "", category_id: "", q: "" };
+const PER_PAGE = 10;
 
 export default function Tasks() {
   const { user, logout } = useAuth();
@@ -14,12 +15,20 @@ export default function Tasks() {
   const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [debouncedQ, setDebouncedQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ total: 0, pages: 1 });
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const refresh = () => setRefreshKey((k) => k + 1);
+
+  // Any filter change goes back to page 1
+  function updateFilters(next) {
+    setFilters(next);
+    setPage(1);
+  }
 
   const loadCategories = useCallback(async () => {
     try {
@@ -40,10 +49,10 @@ export default function Tasks() {
     return () => clearTimeout(id);
   }, [filters.q]);
 
-  // Load tasks whenever a filter changes
+  // Load tasks whenever a filter or the page changes
   useEffect(() => {
     let cancelled = false;
-    const params = {};
+    const params = { page, per_page: PER_PAGE };
     if (filters.status) params.status = filters.status;
     if (filters.priority) params.priority = filters.priority;
     if (filters.category_id) params.category_id = filters.category_id;
@@ -53,10 +62,16 @@ export default function Tasks() {
     api
       .get("/api/tasks", { params })
       .then((res) => {
-        if (!cancelled) {
-          setTasks(res.data);
-          setError("");
+        if (cancelled) return;
+        const { items, total, pages } = res.data;
+        // If the last task on the last page was deleted, step back one page
+        if (items.length === 0 && page > 1) {
+          setPage(Math.max(1, pages));
+          return;
         }
+        setTasks(items);
+        setMeta({ total, pages: Math.max(1, pages) });
+        setError("");
       })
       .catch((err) => {
         if (!cancelled) setError(getErrorMessage(err));
@@ -68,10 +83,11 @@ export default function Tasks() {
     return () => {
       cancelled = true;
     };
-  }, [filters.status, filters.priority, filters.category_id, debouncedQ, refreshKey]);
+  }, [filters.status, filters.priority, filters.category_id, debouncedQ, page, refreshKey]);
 
   async function createTask(payload) {
     await api.post("/api/tasks", payload);
+    setPage(1); // new tasks appear first
     refresh();
   }
 
@@ -104,7 +120,7 @@ export default function Tasks() {
     loadCategories();
     refresh();
     if (deletedId && String(deletedId) === filters.category_id) {
-      setFilters((f) => ({ ...f, category_id: "" }));
+      updateFilters({ ...filters, category_id: "" });
     }
   }
 
@@ -127,9 +143,9 @@ export default function Tasks() {
           <TaskForm categories={categories} onSubmit={createTask} />
           <Filters
             filters={filters}
-            setFilters={setFilters}
+            setFilters={updateFilters}
             categories={categories}
-            onClear={() => setFilters(EMPTY_FILTERS)}
+            onClear={() => updateFilters(EMPTY_FILTERS)}
           />
 
           {error && <p className="error">{error}</p>}
@@ -154,6 +170,30 @@ export default function Tasks() {
                 onDelete={deleteTask}
               />
             )
+          )}
+
+          {meta.total > 0 && (
+            <div className="pager">
+              <button
+                type="button"
+                className="secondary small"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous
+              </button>
+              <span className="muted">
+                Page {page} of {meta.pages} ({meta.total} {meta.total === 1 ? "task" : "tasks"})
+              </span>
+              <button
+                type="button"
+                className="secondary small"
+                disabled={page >= meta.pages || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
           )}
         </main>
       </div>

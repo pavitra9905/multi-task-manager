@@ -25,3 +25,9 @@ class Config:
         for o in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
         if o.strip()
     ]
+
+    # Rate limits (can be changed with environment variables)
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+    LOGIN_RATE_LIMIT = os.getenv("LOGIN_RATE_LIMIT", "5 per minute")
+    LOGIN_EMAIL_RATE_LIMIT = os.getenv("LOGIN_EMAIL_RATE_LIMIT", "10 per 15 minutes")
+    REGISTER_RATE_LIMIT = os.getenv("REGISTER_RATE_LIMIT", "10 per hour")

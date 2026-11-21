@@ -101,3 +101,20 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   border-bottom: 1px solid #f3f4f6;
 }
 .cat-item input { padding: 6px; font-size: 14px; }
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 28px;
+}
+
+.wake-banner {
+  background: #fff7e6;
+  color: #92400e;
+  border-bottom: 1px solid #fcd34d;
+  padding: 10px 16px;
+  text-align: center;
+  font-size: 14px;
+}

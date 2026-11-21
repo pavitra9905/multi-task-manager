@@ -1,17 +1,29 @@
 import bcrypt
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_limiter.util import get_remote_address
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 
-from extensions import db
+from extensions import db, limiter
 from models import User
 from schemas import RegisterSchema, LoginSchema
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
+def email_key():
+    """Rate-limit key for login: the email being tried (falls back to the IP)."""
+    data = request.get_json(silent=True)
+    if isinstance(data, dict):
+        email = str(data.get("email", "")).strip().lower()
+        if email:
+            return email
+    return get_remote_address()
+
+
 @auth_bp.post("/register")
+@limiter.limit(lambda: current_app.config["REGISTER_RATE_LIMIT"])
 def register():
     try:
         data = RegisterSchema().load(request.get_json(silent=True) or {})
@@ -37,6 +49,8 @@ def register():
 
 
 @auth_bp.post("/login")
+@limiter.limit(lambda: current_app.config["LOGIN_RATE_LIMIT"])
+@limiter.limit(lambda: current_app.config["LOGIN_EMAIL_RATE_LIMIT"], key_func=email_key, scope="login-email")
 def login():
     try:
         data = LoginSchema().load(request.get_json(silent=True) or {})
