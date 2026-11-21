@@ -2,6 +2,12 @@
 
 ![tests](https://github.com/pavitra9905/multi-task-manager/actions/workflows/tests.yml/badge.svg)
 
+## Screenshots
+
+![Task page with categories](docs/tasks1.png)
+![Task page with categories](docs/tasks2.png)
+
+![Filtering tasks by status and priority](docs/filters.png)
 A full-stack task app where each user registers, logs in, and manages only their own tasks.
 
 **Live demo:** https://task-manager-frontend-b869.onrender.com
