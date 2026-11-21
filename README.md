@@ -2,16 +2,16 @@
 
 ![tests](https://github.com/pavitra9905/multi-task-manager/actions/workflows/tests.yml/badge.svg)
 
-## Screenshots
-
-![Task page with categories](docs/tasks1.png)
-![Task page with categories](docs/tasks2.png)
-
-![Filtering tasks by status and priority](docs/filters.png)
 A full-stack task app where each user registers, logs in, and manages only their own tasks.
 
 **Live demo:** https://task-manager-frontend-b869.onrender.com
-(Hosted on free plans. The first load can take about a minute while the server wakes up.)
+(Hosted on free plans. The first load can take about a minute while the server wakes up, and the app shows a message while it does.)
+
+## Screenshots
+
+![Task page with categories](docs/tasks.png)
+
+![Filtering tasks by status and priority](docs/filters.png)
 
 ## Features
 
@@ -19,7 +19,9 @@ A full-stack task app where each user registers, logs in, and manages only their
 - Create, read, update and delete tasks (title, description, status, priority, due date)
 - Categories per user (create, rename, delete)
 - Filter tasks by status, priority and category, and search by title
+- Paginated task list (10 per page)
 - Server-side validation on every input
+- Rate limits on login and registration
 - Each user can only see and change their own data
 
 ## Tech stack
@@ -27,9 +29,9 @@ A full-stack task app where each user registers, logs in, and manages only their
 | Layer | Tools |
 |---|---|
 | Frontend | React (Vite), React Router, Axios |
-| Backend | Python, Flask, SQLAlchemy, Flask-Migrate, Flask-JWT-Extended, Marshmallow |
+| Backend | Python, Flask, SQLAlchemy, Flask-Migrate, Flask-JWT-Extended, Flask-Limiter, Marshmallow |
 | Database | PostgreSQL (Neon) |
-| Tests | pytest (50 tests), GitHub Actions |
+| Tests | pytest (66 tests), GitHub Actions |
 | Hosting | Render (API and static site), Neon (database) |
 
 ## Database design
@@ -51,10 +53,12 @@ Category names are stored once and referenced by tasks, so they are not repeated
 | GET | `/api/auth/me` | Current user |
 | GET, POST | `/api/categories` | List and create categories |
 | PUT, DELETE | `/api/categories/<id>` | Rename and delete a category |
-| GET, POST | `/api/tasks` | List (with filters) and create tasks |
+| GET, POST | `/api/tasks` | List (paginated, with filters) and create tasks |
 | GET, PUT, DELETE | `/api/tasks/<id>` | Read, update and delete a task |
 
-Task filters: `?status=`, `?priority=`, `?category_id=`, `?q=` (title search).
+Task list parameters: `?page=`, `?per_page=` (default 10, max 50), plus `?status=`, `?priority=`, `?category_id=`, `?q=` (title search).
+
+The list returns `items`, `page`, `per_page`, `total` and `pages`.
 
 ## Security decisions
 
@@ -62,6 +66,7 @@ Task filters: `?status=`, `?priority=`, `?category_id=`, `?q=` (title search).
 - Another user's task returns 404, not 403, so its existence is not revealed.
 - Unknown fields in a request (such as `user_id`) are rejected.
 - Wrong email and wrong password give the same error message.
+- Login is rate limited per IP (5 per minute) and per email (10 per 15 minutes); registration is limited per IP.
 - Tokens expire after 1 hour.
 - Secrets live in environment variables and are not in the repo.
 
@@ -105,9 +110,8 @@ The tests use the separate `taskdb_test` database and refuse to run on any datab
 
 ## Known limitations
 
-- No pagination on the task list
-- No rate limit on login attempts
-- JWT is kept in localStorage (an HttpOnly cookie would be safer against XSS)
+- JWT is kept in localStorage. An HttpOnly cookie is safer against XSS, but needs CSRF protection and extra cross-site cookie settings, so I kept the simpler option and know the trade-off
+- Rate-limit counters are kept in memory, so they reset when the API restarts or sleeps. For several server workers they should move to Redis
 - No refresh tokens; users log in again after 1 hour
 - No frontend tests
-- Free hosting: the API sleeps after inactivity
+- Free hosting: the API sleeps after inactivity (the app shows a waiting message)
